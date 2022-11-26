@@ -3,7 +3,8 @@ bk/
 test_case0/
 
 #ignore files
-.csv
-.pkl
-.dt
-.pyc
+tempCodeRunnerFile.py
+*.csv
+*.pkl
+*.dt
+*.pyc
