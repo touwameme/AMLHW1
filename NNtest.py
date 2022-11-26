@@ -10,6 +10,7 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import lowpass as lp
 from RNN import *
+'''
 DATA_PATH='./'
 order = 4
 fs = 5000
@@ -54,10 +55,11 @@ phone_gyro_filtered = np.array([lp.butter_lowpass_filter(gyro_data[gyro_data.key
                                 lp.butter_lowpass_filter(gyro_data[gyro_data.keys()[3]],cutoff,fs,order)])
 
 phone_direction_filtered=np.array(lp.butter_lowpass_filter(location_data[location_data.keys()[5]], cutoff, fs))
+'''
 
 #dataset = Mydata(phone_acc_filtered, phone_linear_acc_filtered, phone_gyro_filtered, phone_gyro_filtered, phone_direction_filtered)
-dataset = MydataP(phone_acc, phone_linear_acc, phone_gyro, phone_mag, phone_direction)
-
+#dataset = MydataP(phone_acc, phone_linear_acc, phone_gyro, phone_mag, phone_direction)
+dataset = torch.load('./testcase0.dt')
 
 #print(phone_acc.shape)
 #print(phone_direction.shape)
@@ -73,11 +75,11 @@ model = RNN(inputsize=600,statesize=1)
 optimizer = torch.optim.Adam(model.parameters(),lr=0.002)
 loss_func = torch.nn.MSELoss()
 
-torch.save(dataset,'./testcase0.dt')
-#param = torch.load('./param.pkl')
-#model.load_state_dict(param)
+#torch.save(dataset,'./testcase0.dt')
+param = torch.load('./param.pkl')
+model.load_state_dict(param)
 
-
+'''
 
 for epoch in range(30000):
     model.train()
@@ -98,9 +100,10 @@ for epoch in range(30000):
         print('trainloss {:.6f}'.format(train_loss/cnt))
 torch.save(model.state_dict(),'./param.pkl')
 
+'''
 #model.eval()
-#test_dataloader=DataLoader(dataset,batch_size=1,shuffle=False)
-#inference(model, tesd_dataloader)
+test_dataloader=DataLoader(dataset,batch_size=1,shuffle=False)
+inference(model, test_dataloader)
 #print(dataset.data.shape)
 #print(dataset.direction.shape)
 #dir = []

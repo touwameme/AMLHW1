@@ -78,10 +78,13 @@ def inference(model,dataset):
     for ii,(input,state0,label) in enumerate(dataset):
         # gt.append(label)
         cnt+=1
-        input = Variable(input.reshape(1, -1)).type(torch.float32)
-        state0 = Variable(state0.type(torch.float32))
-        label = label.type(torch.float32)
-        state = model(input, state0).squeeze()
+        if (ii==0):
+            state=state0
+        else:
+            input = Variable(input.reshape(1, -1)).type(torch.float32)
+            state = Variable(state.type(torch.float32))
+            label = label.type(torch.float32)
+            state = model(input, state).squeeze()
         dir.append(state.detach().numpy())
         labl.append(label.detach().numpy())
         loss = loss_func(state, label)
