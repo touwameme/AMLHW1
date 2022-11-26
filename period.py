@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn
 import scipy.signal as signal
 from statsmodels.tsa.stattools import acf
-print(findperiod(Ax))
+import pywt
 def findperiod(ts):
     period = 0
     fft_series=fft(ts)
@@ -37,7 +37,20 @@ def wavelettransform(ts,period):
     res=[]
     while(i+period<len(ts)):
         tmpts = ts[i:i+period]
-        
+        cA, cD = pywt.dwt(tmpts, 'db1')
+        res.append(np.concatenate([cA,cD],0))
+        i = i+period
+    return res
+
+def dirtransform(ts,period):
+    i=0
+    res=[]
+    while(i+period<len(ts)):
+        tmpts = ts[i:i+period]
+        meandir = np.mean(tmpts)
+        res.append(meandir)
+        i = i+period
+    return res
 
 
     
