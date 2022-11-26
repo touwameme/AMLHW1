@@ -1,9 +1,7 @@
 import math
 import numpy as np
-from matplotlib  import pyplot as plt   
+from matplotlib import pyplot as plt
 import pandas as pd
-from period import *
-from test import get_dir_error
 from model import *
 from filter import *
 from torch.autograd import Variable
@@ -59,7 +57,7 @@ phone_direction_filtered=np.array(lp.butter_lowpass_filter(location_data[locatio
 
 #dataset = Mydata(phone_acc_filtered, phone_linear_acc_filtered, phone_gyro_filtered, phone_gyro_filtered, phone_direction_filtered)
 #dataset = MydataP(phone_acc, phone_linear_acc, phone_gyro, phone_mag, phone_direction)
-dataset = torch.load('./testcase0.dt')
+dataset = torch.load('./test_case0/testcase0.dt')
 
 #print(phone_acc.shape)
 #print(phone_direction.shape)
@@ -69,26 +67,25 @@ dataset = torch.load('./testcase0.dt')
 
 
 
-Batchsize=16
-dataloader = DataLoader(dataset,batch_size=Batchsize,shuffle=False)
-model = RNN(inputsize=600,statesize=1)
+Batchsize=32
+dataloader = DataLoader(dataset,num_workers=6,batch_size=Batchsize,shuffle=False)
+model = RNN(inputsize=600,statesize=1).cuda()
 optimizer = torch.optim.Adam(model.parameters(),lr=0.002)
 loss_func = torch.nn.MSELoss()
 
 #torch.save(dataset,'./testcase0.dt')
-param = torch.load('./param.pkl')
+param = torch.load('./test_case0/param.pkl')
 model.load_state_dict(param)
 
-'''
 
 for epoch in range(30000):
     model.train()
     train_loss = 0
     cnt=0
     for ii,(data,dir0,label) in enumerate(dataloader):
-        data =Variable(data.type(torch.float32),requires_grad=True)
-        state = Variable(dir0.type(torch.float32),requires_grad=True)
-        label = label.type(torch.float32)
+        data =Variable(data.type(torch.float32),requires_grad=True).cuda()
+        state = Variable(dir0.type(torch.float32),requires_grad=True).cuda()
+        label = label.type(torch.float32).cuda()
         pred = model(data,state).reshape(label.shape)
         loss = loss_func(pred,label)
         optimizer.zero_grad()
@@ -98,9 +95,8 @@ for epoch in range(30000):
         cnt+=1
     if epoch%2000==0:
         print('trainloss {:.6f}'.format(train_loss/cnt))
-torch.save(model.state_dict(),'./param.pkl')
+torch.save(model.state_dict(),'./test_case0/gpu.pkl')
 
-'''
 #model.eval()
 test_dataloader=DataLoader(dataset,batch_size=1,shuffle=False)
 inference(model, test_dataloader)
