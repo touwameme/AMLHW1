@@ -1,6 +1,7 @@
 #ignore target folder
 bk/
 test_case0/
+.idea/
 
 #ignore files
 tempCodeRunnerFile.py
