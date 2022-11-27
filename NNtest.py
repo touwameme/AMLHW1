@@ -8,56 +8,10 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import lowpass as lp
 from RNN import *
-'''
-DATA_PATH='./'
-order = 4
-fs = 5000
-cutoff = 2
-mag_data  = pd.read_csv(DATA_PATH+'Magnetometer.csv')
-acc_data  = pd.read_csv(DATA_PATH+'Accelerometer.csv')
-gyro_data = pd.read_csv(DATA_PATH+'Gyroscope.csv')
-try:
-    linear_acc_data = pd.read_csv(DATA_PATH+'Linear Accelerometer.csv')
-except:
-    linear_acc_data = pd.read_csv(DATA_PATH+'Linear Acceleration.csv')
-location_data = pd.read_csv(DATA_PATH+'Location.csv')
-PERIOD=50
-
-phone_mag = np.array([wavelettransform(mag_data[mag_data.keys()[1]],PERIOD),
-                      wavelettransform(mag_data[mag_data.keys()[2]],PERIOD),
-                      wavelettransform(mag_data[mag_data.keys()[3]],PERIOD)])
-
-phone_acc = np.array([wavelettransform(acc_data[acc_data.keys()[1]],PERIOD),
-                      wavelettransform(acc_data[acc_data.keys()[2]],PERIOD),
-                      wavelettransform(acc_data[acc_data.keys()[3]],PERIOD)])
-phone_linear_acc = np.array([wavelettransform(linear_acc_data[linear_acc_data.keys()[1]],PERIOD),
-                             wavelettransform(linear_acc_data[linear_acc_data.keys()[2]],PERIOD),
-                             wavelettransform(linear_acc_data[linear_acc_data.keys()[3]],PERIOD)])
-phone_gyro = np.array([wavelettransform(gyro_data[gyro_data.keys()[1]],PERIOD),
-                       wavelettransform(gyro_data[gyro_data.keys()[2]],PERIOD),
-                       wavelettransform(gyro_data[gyro_data.keys()[3]],PERIOD)])
-phone_direction = np.array(dirtransform(location_data[location_data.keys()[5]],PERIOD))
-
-phone_mag_filtered = np.array([lp.butter_lowpass_filter(mag_data[mag_data.keys()[1]],cutoff,fs,order),
-                               lp.butter_lowpass_filter(mag_data[mag_data.keys()[2]],cutoff,fs,order),
-                               lp.butter_lowpass_filter(mag_data[mag_data.keys()[3]],cutoff,fs,order)])
-
-phone_acc_filtered = np.array([lp.butter_lowpass_filter(acc_data[acc_data.keys()[1]],cutoff,fs,order),
-                               lp.butter_lowpass_filter(acc_data[acc_data.keys()[2]],cutoff,fs,order),
-                               lp.butter_lowpass_filter(acc_data[acc_data.keys()[3]],cutoff,fs,order)])
-phone_linear_acc_filtered = np.array([lp.butter_lowpass_filter(linear_acc_data[linear_acc_data.keys()[1]],cutoff,fs,order),
-                                      lp.butter_lowpass_filter(linear_acc_data[linear_acc_data.keys()[2]],cutoff,fs,order),
-                                      lp.butter_lowpass_filter(linear_acc_data[linear_acc_data.keys()[3]],cutoff,fs,order)])
-phone_gyro_filtered = np.array([lp.butter_lowpass_filter(gyro_data[gyro_data.keys()[1]],cutoff,fs,order),
-                                lp.butter_lowpass_filter(gyro_data[gyro_data.keys()[2]],cutoff,fs,order),
-                                lp.butter_lowpass_filter(gyro_data[gyro_data.keys()[3]],cutoff,fs,order)])
-
-phone_direction_filtered=np.array(lp.butter_lowpass_filter(location_data[location_data.keys()[5]], cutoff, fs))
-'''
+from dataset import ts_data
 
 #dataset = Mydata(phone_acc_filtered, phone_linear_acc_filtered, phone_gyro_filtered, phone_gyro_filtered, phone_direction_filtered)
 #dataset = MydataP(phone_acc, phone_linear_acc, phone_gyro, phone_mag, phone_direction)
-dataset = torch.load('./test_case0/testcase0.dt')
 
 #print(phone_acc.shape)
 #print(phone_direction.shape)
@@ -65,16 +19,19 @@ dataset = torch.load('./test_case0/testcase0.dt')
 #plt.show()
 
 
+path_list = ['data/Hand/00/', 'data/Hand/01/', 'data/Hand/04/', 'data/Hand/08/', 'data/Hand/12/','data/Hand/21/','data/Hand/25/','data/Hand/31/','data/Pocket/01/','data/Pocket/02/', 'data/Pocket/04/','data/Pocket/08/','data/Pocket/12/','data/Bag/00/','data/Bag/01/']
+train_dataset = ts_data(path_list, 'train')
+val_dataset = ts_data(path_list, 'val')
 
-
-Batchsize=32
-dataloader = DataLoader(dataset,num_workers=6,batch_size=Batchsize,shuffle=False)
+print('the size of train_dataset is:', len(train_dataset))
+Batchsize=128
+dataloader = DataLoader(train_dataset,num_workers=10,pin_memory=True,persistent_workers=True,batch_size=Batchsize,shuffle=True)
 model = RNN(inputsize=600,statesize=1).cuda()
 optimizer = torch.optim.Adam(model.parameters(),lr=0.002)
 loss_func = torch.nn.MSELoss()
 
 #torch.save(dataset,'./testcase0.dt')
-param = torch.load('./test_case0/param.pkl')
+param = torch.load('./experiment/dir.pkl')
 model.load_state_dict(param)
 
 
@@ -95,11 +52,11 @@ for epoch in range(30000):
         cnt+=1
     if epoch%2000==0:
         print('trainloss {:.6f}'.format(train_loss/cnt))
-torch.save(model.state_dict(),'./test_case0/gpu.pkl')
+torch.save(model.state_dict(),'./experiment/dir2.pkl')
 
-#model.eval()
-test_dataloader=DataLoader(dataset,batch_size=1,shuffle=False)
-inference(model, test_dataloader)
+# test_dataloader=DataLoader(val_dataset,pin_memory=True,batch_size=1,shuffle=False)
+print('the size of val_dataset is:', len(val_dataset))
+inference(model, val_dataset)
 #print(dataset.data.shape)
 #print(dataset.direction.shape)
 #dir = []

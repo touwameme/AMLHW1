@@ -2,6 +2,8 @@
 bk/
 test_case0/
 .idea/
+data/
+experiment/
 
 #ignore files
 tempCodeRunnerFile.py

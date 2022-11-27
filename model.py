@@ -5,7 +5,8 @@ import numpy as np
 from torch.nn import functional as F
 import math
 from torch.autograd import Variable
-from matplotlib  import pyplot as plt   
+from matplotlib  import pyplot as plt
+
 class AccNN(nn.Module):
     def __init__(self,inputsize):
         super(AccNN,self).__init__()
@@ -44,7 +45,7 @@ class Mydata(Dataset):
         return self.data.shape[1]
     
 class MydataP(Dataset):
-    def __init__(self,acc,linear_acc,gyro,mag,direction):
+    def __init__(self,acc,linear_acc,gyro,mag,direction,table):#[L1,L1+L2]
         self.acc = acc
         self.linear_acc =linear_acc
         self.gyro = gyro
@@ -52,47 +53,64 @@ class MydataP(Dataset):
         self.direction = direction
         self.data = np.concatenate((acc,linear_acc,gyro,mag),axis=0)
         self.label = direction
+        self.table=table
     def __getitem__(self, idx):
         assert idx<max(self.acc.shape)
-        
         if idx==len(self.acc):
-            didx=-1
+            dir1idx=idx
         else:
-            didx=idx
-        da = self.data[:,idx].reshape(-1)
-        return (torch.tensor(da),torch.tensor(self.label[idx]),torch.tensor(self.label[idx+1]))
+            dir1idx=idx+1
+        da = self.data[:, idx].reshape(-1)
+        return (torch.tensor(da),torch.tensor(self.label[idx]),torch.tensor(self.label[dir1idx]))
         
     def __len__(self):
         return self.data.shape[1]-1
     
 def inference(model,dataset):
+    model.eval()
     print('Inferencing')
     loss_sum = 0
     #state = dataset[0][1]
     #dir = [state]
     #gt = [state]
-    dir=[]
-    labl=[]
+    ts_loss = []
     loss_func = torch.nn.MSELoss()
-    cnt=0
-    for ii,(input,state0,label) in enumerate(dataset):
-        # gt.append(label)
-        cnt+=1
-        if (ii==0):
-            state=state0
-        else:
-            input = Variable(input.reshape(1, -1)).type(torch.float32)
-            state = Variable(state.type(torch.float32))
-            label = label.type(torch.float32)
-            state = model(input, state).squeeze()
-        dir.append(state.detach().numpy())
-        labl.append(label.detach().numpy())
-        loss = loss_func(state, label)
-        loss_sum += loss.item()
-    print(loss_sum/cnt)
-    plt.plot(dir)
-    plt.plot(labl)
-    plt.show()
+    with torch.no_grad():
+        for ii,(ts,state0,dir) in enumerate(dataset):
+            assert ts.shape[0] == dir.shape[0]
+            pre = []
+            gt = dir.numpy()
+            # print(gt)
+            time = ts.shape[0]
+            state = state0.type(torch.float32).cuda()
+            for t in range(time):
+                input = ts[t].reshape(1, -1).type(torch.float32).cuda()
+                label = dir[t].type(torch.float32).cuda()
+                state = model(input, state).squeeze()
+                # print(label, state)
+            # if (ii==0):
+            #     state=state0.cuda()
+            # else:
+            #     input = Variable(input.reshape(1, -1)).type(torch.float32).cuda()
+            #     state = Variable(state.type(torch.float32)).cuda()
+            #     label = label.type(torch.float32).cuda()
+            #     state = model(input, state).squeeze()
+                loss = loss_func(state, label)
+                loss_sum += loss.item()
+                pre.append(state.cpu().numpy())
+                # gt.append(label.cpu().numpy())
+
+            # print(pre)
+            # print(len(pre),len(gt))
+            ts_loss.append(loss_sum/time)
+            # print(pre, gt)
+            plt.plot(pre)
+            plt.plot(gt)
+            plt.title(dataset.path_list[ii])
+            plt.savefig('./experiment/fig/'+str(ii))
+            plt.show()
+
+    print(ts_loss, np.mean(ts_loss))
 '''  
 period = min(findperiod(Ax),findperiod(Ay),findperiod(Az))
 
