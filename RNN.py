@@ -41,3 +41,37 @@ def train_epoch(model, dataloader, optimizer, loss_function):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        
+        
+class LocationModel(nn.Module):  
+    #state=[dir,log,lat]
+    def __init__(self,inputsize,statesize): 
+        super(LocationModel,self).__init__()
+        self.inputsize = inputsize
+        self.statesize = statesize
+        self.directionModel = RNN(600,1)
+        self.layer1 = [224, 128, 64]
+        self.fc1=nn.Sequential(
+            nn.Linear(inputsize, self.layer1[0]),
+            nn.Sigmoid(),
+            nn.Linear(self.layer1[0], self.layer1[1]),
+            nn.Sigmoid(),
+            nn.Linear(self.layer1[1], self.layer1[2]),
+            nn.Sigmoid()
+        )
+        self.layer2 = [32]
+        self.fc2=nn.Sequential(   #64+3
+            nn.Linear(self.layer1[-1]+self.statesize, self.layer2[0]),
+            nn.Sigmoid(),
+            nn.Linear(self.layer2[0], 2)
+        )
+        
+        
+    def forward(self,x,state):
+        batch_size = x.size(0)
+        x = x.reshape(batch_size,-1).type(torch.float32)
+        direc = self.directionModel(x,state[:,0])
+        ft1 = self.fc1(x)  #veclocity  1
+        x = torch.cat([x,direc.reshape(batch_size,1),state[:,1:].reshape(batch_size,2)],1).type(torch.float32)
+        x = self.fc2(x)
+        return x
