@@ -6,6 +6,7 @@ from torch.nn import functional as F
 import math
 from torch.autograd import Variable
 from matplotlib  import pyplot as plt
+from test import get_dir_error
 
 class AccNN(nn.Module):
     def __init__(self,inputsize):
@@ -74,16 +75,18 @@ def inference(model,dataset):
     #dir = [state]
     #gt = [state]
     ts_loss = []
-    loss_func = torch.nn.MSELoss()
+    # loss_func = get_dir_error()
     with torch.no_grad():
-        for ii,(ts,state0,dir) in enumerate(dataset):
+        for ii,(ts,states,dir) in enumerate(dataset):
+            print(ts.shape, dir.shape)
             assert ts.shape[0] == dir.shape[0]
             pre = []
             gt = dir.numpy()
             # print(gt)
             time = ts.shape[0]
-            state = state0.type(torch.float32).cuda()
-            for t in range(time):
+            state = states[10].type(torch.float32).cuda()
+            for t in range(10, time):
+                # state = states[t].type(torch.float32).cuda()
                 input = ts[t].reshape(1, -1).type(torch.float32).cuda()
                 label = dir[t].type(torch.float32).cuda()
                 state = model(input, state).squeeze()
@@ -95,8 +98,8 @@ def inference(model,dataset):
             #     state = Variable(state.type(torch.float32)).cuda()
             #     label = label.type(torch.float32).cuda()
             #     state = model(input, state).squeeze()
-                loss = loss_func(state, label)
-                loss_sum += loss.item()
+            #     loss = get_dir_error(state, label)
+            #     loss_sum += loss.item()
                 pre.append(state.cpu().numpy())
                 # gt.append(label.cpu().numpy())
 
@@ -105,10 +108,14 @@ def inference(model,dataset):
             ts_loss.append(loss_sum/time)
             # print(pre, gt)
             plt.plot(pre)
-            plt.plot(gt)
+            plt.plot(gt[10:])
             plt.title(dataset.path_list[ii])
             plt.savefig('./experiment/fig/'+str(ii))
             plt.show()
+            plt.cla()
+            print(get_dir_error(gt, pre))
+            # np.save('experiment/pre_dir.npy', np.array(pre))
+            # np.save('experiment/pre_dir.npy', np.array(gt))
 
     print(ts_loss, np.mean(ts_loss))
 '''  
