@@ -68,6 +68,7 @@ class ts_data(Dataset):
         self.input = []
         self.state = []
         self.label = []
+        self.labellen = np.inf
         for path in self.path_list:
             acc, lac, gyro, mag, dir, loc = process_ts(path)  # shape (12, t, 50) dir(t,)
             input = np.concatenate((acc, lac, gyro, mag), axis=0).reshape(-1, 600) # shape (t, 600)
@@ -75,20 +76,24 @@ class ts_data(Dataset):
                 input = input[:600]
                 dir = dir[:600]
                 loc = loc[:600]
-            input = input[3:-1-3]
-            dir = dir[3:-3].reshape(-1,1)
-            loc = loc[3:-3]
-            assert loc.shape[0]==dir.shape[0]
+            if  not self.mode=='test':
+                input = input[3:-1-3]
+                dir = dir[3:-3].reshape(-1,1)
+                loc = loc[3:-3]
+                assert loc.shape[0]==dir.shape[0]
+            else:
+                dir = dir.reshape(-1,1)
             if self.statesize==1:
                 state = dir
             elif self.statesize==3:
                 state = np.concatenate((dir, loc),axis=1)
-            # print(input.shape)
             if self.mode == 'step_train':
                 num = input.shape[0]//self.step
                 input = input[:num*self.step].reshape(num,self.step,600)
                 state = state[::self.step]
-
+            elif self.mode == 'test':
+                tmpstate = state[:state.shape[0]//2,:]# delete the None NAN tail
+                state = np.array (tmpstate[np.isfinite(tmpstate)]).reshape(-1,statesize)
             self.input.append(input)
             # print(dir.shape)
             self.label.append(state[1:])
@@ -101,13 +106,18 @@ class ts_data(Dataset):
             self.len = self.input.shape[0]
         elif self.mode == 'val':
             self.len = len(self.input)
-
+        elif self.mode =='finetune':
+            self.len = len(self.label)
+        elif self.mode=='finetune':
+            self.labellen = len(self.label)
 
     def __getitem__(self, idx):
-        if self.mode == 'train' or self.mode == 'step_train':
+        if self.mode =='test':
+            labelidx = min(idx,self.labellen-1)
+            return torch.tensor(self.input[idx]), torch.tensor(self.state[labelidx]), torch.tensor(self.label[labelidx])
+        elif self.mode == 'train' or self.mode == 'step_train' or self.mode=='val' or self.mode=='finetune':
             return (torch.tensor(self.input[idx]), torch.tensor(self.state[idx]), torch.tensor(self.label[idx]))
-        elif self.mode == 'val':
-            return torch.tensor(self.input[idx]), torch.tensor(self.state[idx]), torch.tensor(self.label[idx])
+       
 
     def __len__(self):
         return self.len

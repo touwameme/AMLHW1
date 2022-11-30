@@ -42,7 +42,7 @@ def align_by_time(data,end,Hz=50,start=0,):
 def prepro(path):
     #filenames=['Accelerometer']
     filenames=['Accelerometer.csv','Gyroscope.csv','Linear Accelerometer.csv','Magnetometer.csv','Location.csv']
-    locationdata = pd.read_csv('Location.csv')
+    locationdata = pd.read_csv(path+'Location.csv')
     endtime = locationdata.iloc[-1,0]
     for file in filenames:
         file = os.path.join(path, file)
