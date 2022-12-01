@@ -39,7 +39,7 @@ def process_ts(DATA_PATH='./', order=4, fs=5000, cutoff=3):
     x = np.array(dirtransform(location_data[location_data.keys()[1]],PERIOD)).reshape(-1,1)
     y = np.array(dirtransform(location_data[location_data.keys()[2]],PERIOD)).reshape(-1,1)
     phone_loc = np.concatenate((x,y),axis=1)
-
+    phone_vel = np.array(dirtransform(location_data[location_data.keys()[4]],PERIOD))
 
     phone_mag_filtered = np.array([wavelettransform(lp.butter_lowpass_filter(mag_data[mag_data.keys()[1]],cutoff,fs,order),PERIOD),
                                    wavelettransform(lp.butter_lowpass_filter(mag_data[mag_data.keys()[2]],cutoff,fs,order),PERIOD),
@@ -56,7 +56,7 @@ def process_ts(DATA_PATH='./', order=4, fs=5000, cutoff=3):
                                     wavelettransform(lp.butter_lowpass_filter(gyro_data[gyro_data.keys()[3]],cutoff,fs,order),PERIOD)])
 
     phone_direction_filtered=np.array(dirtransform(lp.butter_lowpass_filter(location_data[location_data.keys()[5]], cutoff, fs),PERIOD))
-    return phone_acc, phone_linear_acc, phone_gyro, phone_mag, phone_direction, phone_loc
+    return phone_acc, phone_linear_acc, phone_gyro, phone_mag, phone_direction, phone_loc,phone_vel
     # return phone_acc_filtered, phone_linear_acc_filtered, phone_gyro_filtered, phone_mag_filtered, phone_direction_filtered
 
 class ts_data(Dataset):
@@ -70,7 +70,7 @@ class ts_data(Dataset):
         self.label = []
         self.labellen = np.inf
         for path in self.path_list:
-            acc, lac, gyro, mag, dir, loc = process_ts(path)  # shape (12, t, 50) dir(t,)
+            acc, lac, gyro, mag, dir, loc,vel = process_ts(path)  # shape (12, t, 50) dir(t,)
             input = np.concatenate((acc, lac, gyro, mag), axis=0).reshape(-1, 600) # shape (t, 600)
             if path == './Bag/01/':
                 input = input[:600]
@@ -80,13 +80,22 @@ class ts_data(Dataset):
                 input = input[3:-1-3]
                 dir = dir[3:-3].reshape(-1,1)
                 loc = loc[3:-3]
+                vel = vel[3:-3]
                 assert loc.shape[0]==dir.shape[0]
             else:
                 dir = dir.reshape(-1,1)
+                vel = vel.reshape(-1,1)
             if self.statesize==1:
                 state = dir
+            elif self.statesize==2:
+                dir = dir.reshape(-1,1)
+                vel = vel.reshape(-1,1)
+                state = np.concatenate((dir,vel),axis=1)
             elif self.statesize==3:
                 state = np.concatenate((dir, loc),axis=1)
+            elif self.statesize==4:
+                vel = vel.reshape(-1,1)
+                state = np.concatenate((dir,loc,vel),axis=1)
             if self.mode == 'step_train':
                 num = input.shape[0]//self.step
                 input = input[:num*self.step].reshape(num,self.step,600)

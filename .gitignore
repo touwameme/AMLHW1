@@ -4,7 +4,7 @@ test_case0/
 .idea/
 data/
 experiment/
-
+_pycache_/
 #ignore files
 tempCodeRunnerFile.py
 *.csv
@@ -12,3 +12,4 @@ tempCodeRunnerFile.py
 *.dt
 *.pyc
 .DS_Store
+.output

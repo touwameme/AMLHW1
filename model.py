@@ -68,7 +68,7 @@ class MydataP(Dataset):
         return self.data.shape[1]-1
     
 def inference(model,dataset):
-    #model.eval()
+    model.eval()
     print('Inferencing')
     loss_sum = 0
     #state = dataset[0][1]
@@ -79,7 +79,7 @@ def inference(model,dataset):
     with torch.no_grad():
         for ii,(ts,states,dir) in enumerate(dataset):
             print(ts.shape, dir.shape)
-            #assert ts.shape[0] == dir.shape[0]
+            assert ts.shape[0] == dir.shape[0]
             pre = []
             gt = dir.numpy()
             # print(gt)
@@ -88,7 +88,7 @@ def inference(model,dataset):
             for t in range(10, time):
                 # state = states[t].type(torch.float32).cuda()
                 input = ts[t].reshape(1, -1).type(torch.float32).cuda()
-                label = dir[min(t,len(dataset.label)-1)].type(torch.float32).cuda()
+                label = dir[t].type(torch.float32).cuda()
                 state = model(input, state).squeeze()
                 # print(label, state)
             # if (ii==0):
@@ -111,14 +111,13 @@ def inference(model,dataset):
             plt.plot(gt[10:])
             plt.title(dataset.path_list[ii])
             plt.savefig('./experiment/fig/'+str(ii))
-            #plt.show()
+            plt.show()
             plt.cla()
-            
-            #print(get_dir_error(gt, pre))
+            print(get_dir_error(gt, pre))
             # np.save('experiment/pre_dir.npy', np.array(pre))
             # np.save('experiment/pre_dir.npy', np.array(gt))
-    #return np.array(pre)
-    #print(ts_loss, np.mean(ts_loss))
+
+    print(ts_loss, np.mean(ts_loss))
 '''  
 period = min(findperiod(Ax),findperiod(Ay),findperiod(Az))
 

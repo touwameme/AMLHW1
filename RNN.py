@@ -3,7 +3,7 @@ from torch import nn
 from torch.utils.data import Dataset
 import numpy as np
 import math
-
+import time
 class RNN2(nn.Module):
     def __init__(self,inputsize,statesize):
         super(RNN2, self).__init__()
@@ -63,7 +63,53 @@ class RNN(nn.Module):
             x = torch.cat([x, state.reshape(batch_size,1)], 1).type(torch.float32)
         x = self.fc2(x)
         return x
+
+
+class VelocityModel(nn.Module):  
+    #state=[dir,log,lat]
+    def __init__(self,inputsize,statesize=2): 
+        super(VelocityModel,self).__init__()
+        self.inputsize = inputsize
+        self.statesize = statesize
+        self.dropout = nn.Dropout(0.2)
+        self.directionModel = RNN2(600,1)
+        param = torch.load('./experiment/rnn2_simple_loss/6.pkl')
+        self.directionModel.load_state_dict(param)
+        self.layer1 = [224, 128, 64]
+        self.fc1=nn.Sequential(
+            nn.Linear(inputsize, self.layer1[0]),
+            nn.Sigmoid(),
+            nn.BatchNorm1d(self.layer1[0]),
+            nn.Linear(self.layer1[0], self.layer1[1]),
+            nn.Sigmoid(),
+            nn.BatchNorm1d(self.layer1[1]),
+            nn.Linear(self.layer1[1], self.layer1[2]),
+            nn.Sigmoid(),
+            nn.BatchNorm1d(self.layer1[2]),
+        )
+        self.layer2 = [32]
+        self.fc2=nn.Sequential(   #64+3
+            nn.Linear(self.layer1[-1]+self.statesize+1, self.layer2[0]),
+            nn.Sigmoid(),
+            nn.Linear(self.layer2[0], 1)
+        )
         
+        
+    def forward(self,x,state):
+        batch_size = x.size(0)
+        x = x.reshape(batch_size,-1).type(torch.float32)
+        state = state.reshape(batch_size,-1)
+        #with torch.no_grad():
+            #direc = self.directionModel(x,state[:,0]).reshape(batch_size,1)
+        direc = self.directionModel(x,state[:,0]).reshape(batch_size,1)
+        x = self.fc1(x)  #veclocity  1
+        x = self.dropout(x)
+        x = torch.cat([x,torch.sin(direc*np.pi/180), torch.cos(direc*np.pi/180), state[:,1:].reshape(batch_size,1)], 1).type(torch.float32)
+        x = self.fc2(x)
+        return torch.cat([direc, x], axis=1)
+
+
+
         
 class LocationModel(nn.Module):  
     #state=[dir,log,lat]
@@ -73,20 +119,23 @@ class LocationModel(nn.Module):
         self.statesize = statesize
         self.dropout = nn.Dropout(0.2)
         self.directionModel = RNN2(600,1)
-        param = torch.load('./experiment/w_decay_rnn2.pkl')
+        param = torch.load('./experiment/rnn2_simple_loss/6.pkl')
         self.directionModel.load_state_dict(param)
         self.layer1 = [224, 128, 64]
         self.fc1=nn.Sequential(
             nn.Linear(inputsize, self.layer1[0]),
             nn.Sigmoid(),
+            nn.BatchNorm1d(self.layer1[0]),
             nn.Linear(self.layer1[0], self.layer1[1]),
             nn.Sigmoid(),
+            nn.BatchNorm1d(self.layer1[1]),
             nn.Linear(self.layer1[1], self.layer1[2]),
-            nn.Sigmoid()
+            nn.Sigmoid(),
+            nn.BatchNorm1d(self.layer1[2]),
         )
         self.layer2 = [32]
         self.fc2=nn.Sequential(   #64+3
-            nn.Linear(self.layer1[-1]+self.statesize, self.layer2[0]),
+            nn.Linear(self.layer1[-1]+self.statesize+1, self.layer2[0]),
             nn.Sigmoid(),
             nn.Linear(self.layer2[0], 2)
         )
@@ -95,9 +144,10 @@ class LocationModel(nn.Module):
     def forward(self,x,state):
         batch_size = x.size(0)
         x = x.reshape(batch_size,-1).type(torch.float32)
-        direc = self.directionModel(x,state[:,0])
+        state = state.reshape(batch_size,-1)
+        direc = self.directionModel(x,state[:,0]).reshape(batch_size,1)
         x = self.fc1(x)  #veclocity  1
         x = self.dropout(x)
-        x = torch.cat([x,direc.reshape(batch_size,1),state[:,1:].reshape(batch_size,2)], 1).type(torch.float32)
+        x = torch.cat([x,torch.sin(direc*np.pi/180), torch.cos(direc*np.pi/180), state[:,1:].reshape(batch_size,2)], 1).type(torch.float32)
         x = self.fc2(x)
         return torch.cat([direc, x], axis=1)
